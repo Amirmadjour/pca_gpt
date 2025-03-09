@@ -365,10 +365,7 @@ $$\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
 - Support for **bold**, *italic*, and \`code\`
 - Lists and tables (with remark-gfm)
 
-${GenerateTable({
-  title: "Données originales",
-  table: reponse.data_original,
-})}
+{{GenerateTable({title: "Données originales", table: data.data_original})}}
 
 \`\`\`javascript
 console.log('Hello, world!');
@@ -377,6 +374,7 @@ console.log('Hello, world!');
   `}
                           delay={0.2}
                           duration={1}
+                          data={reponse}
                         />
                       </div>
                       {/* <ScatterPlot />
