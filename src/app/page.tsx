@@ -1,6 +1,12 @@
 "use client";
 
-import { ChevronRight, Settings, Plus, ArrowUp } from "lucide-react";
+import {
+  ChevronRight,
+  Settings,
+  Plus,
+  ArrowUp,
+  ChevronLeft,
+} from "lucide-react";
 import Logo from "@/assets/icons/MadabinaLogo.svg";
 import {
   DetailedHTMLProps,
@@ -21,6 +27,7 @@ import axios from "axios";
 import { BlockMath, InlineMath } from "react-katex";
 
 import "katex/dist/katex.min.css";
+import MarkdownTypewriter from "./MarkDownTypeWriter";
 
 const roboto_mono = Roboto_Mono({ subsets: ["latin"] });
 
@@ -58,11 +65,19 @@ export default function Home() {
     if (selectedFile) {
       try {
         const response = await axios.post(
-          "http://127.0.0.1:8000/api/perform-pca/"
+          "http://127.0.0.1:8000/api/perform-pca/",
+          {
+            pca_type:
+              query.toLowerCase() == "normé"
+                ? "normalized"
+                : query.toLowerCase() == "hétérogène"
+                ? "heterogeneous"
+                : "homogeneous",
+          }
         );
         console.log("Upload successful:", response.data);
         const dataToBeSet = response.data;
-        setReponse(determinePCAType(query, dataToBeSet));
+        setReponse(response.data);
       } catch (error) {
         console.error("Upload failed:", error);
       }
@@ -201,6 +216,80 @@ export default function Home() {
     }
   }, [selectedFile]);
 
+  function generateText({ data }: { data: any[] }): string {
+    let text = "";
+
+    for (const [variable, details] of Object.entries(data)) {
+      text += `Variable: ${variable}\n`;
+
+      details.physical_meaning.forEach(
+        (
+          meaning: {
+            axis: any;
+            meaning: any;
+            contribution: number;
+            correlation: number;
+            quality: any;
+          },
+          index: number
+        ) => {
+          text += `  Detail ${index + 1}:\n`;
+          text += `  - Axe: ${meaning.axis}\n`;
+          text += `  - Sens: ${meaning.meaning}\n`;
+          text += `  - Contribution: ${(meaning.contribution * 100).toFixed(
+            1
+          )}%\n`;
+          text += `  - Correlation: ${(meaning.correlation * 100).toFixed(
+            1
+          )}%\n`;
+          text += `  - Qualité: ${meaning.quality}\n`;
+        }
+      );
+
+      text += "\n";
+    }
+
+    return text;
+  }
+
+  const generateMeans = ({ data }: { data: any[] }) => {
+    return data.map((moy, index) => (
+      <BlockMath key={index}>{`Moy(C_{${index + 1}}) = ${moy.toFixed(
+        2
+      )}`}</BlockMath>
+    ));
+  };
+
+  const generateVariance = ({ data }: { data: any[] }) => {
+    return data.map((moy, index) => (
+      <BlockMath key={index}>{`Var(C_{${index + 1}}) = ${moy.toFixed(
+        2
+      )}`}</BlockMath>
+    ));
+  };
+
+  function generateCovarianceLatex(matrix: number[][]): string {
+    if (matrix.length === 0) return "\\begin{bmatrix} \\end{bmatrix}";
+
+    // Générer les labels dynamiquement : PC1, PC2, ..., PCn
+    const labels = matrix.map((_, i) => `C${i + 1}`);
+
+    // Générer les lignes de la matrice en notation KaTeX
+    const latex = matrix
+      .map((row, i) =>
+        row
+          .map((num, j) =>
+            i === j
+              ? `\\text{Var}(${labels[i]}) = ${num.toFixed(2)}`
+              : `\\text{Cov}(${labels[i]}, ${labels[j]}) = ${num.toFixed(2)}`
+          )
+          .join(" & ")
+      )
+      .join(" \\\\ ");
+
+    return `\\begin{bmatrix} ${latex} \\end{bmatrix}`;
+  }
+
   return (
     <div
       className={clsx(
@@ -218,13 +307,22 @@ export default function Home() {
 
       <nav
         className={clsx(
-          "h-full w-fit py-6 px-4 flex flex-col items-center justify-between bg-card"
+          "h-full w-fit py-6 px-4 flex flex-col items-center justify-between bg-card",
+          open && "w-40"
         )}
       >
-        <div className="flex flex-col items-center justify-center gap-7">
+        <div
+          className={clsx(
+            "flex flex-col items-center justify-center gap-7",
+            open && "flex-start"
+          )}
+        >
           <Image src={Logo} alt="Madabina Logo" width={36} height={36} />
-          <button className="border-[2.5px] border-foreground rounded-md">
-            <ChevronRight size={28} />
+          <button
+            onClick={() => setOpen(!open)}
+            className="border-[2.5px] border-foreground rounded-md"
+          >
+            {open ? <ChevronLeft size={28} /> : <ChevronRight size={28} />}
           </button>
         </div>
         <Settings size={28} />
@@ -252,6 +350,35 @@ export default function Home() {
                     <p>J'ai pas compris ton question 😅​</p>
                   ) : (
                     <>
+                      <div className="w-full">
+                        <MarkdownTypewriter
+                          content={`# Welcome to My Project
+
+This is a **Markdown** document with a typewriter effect.
+
+***
+
+$$\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
+
+## Features
+- Typewriter animation for text
+- Support for **bold**, *italic*, and \`code\`
+- Lists and tables (with remark-gfm)
+
+${GenerateTable({
+  title: "Données originales",
+  table: reponse.data_original,
+})}
+
+\`\`\`javascript
+console.log('Hello, world!');
+\`\`\`
+
+  `}
+                          delay={0.2}
+                          duration={1}
+                        />
+                      </div>
                       {/* <ScatterPlot />
                       <ScatterCirclePlot /> */}
                       <strong>Analyse en Composantes Principales (ACP)</strong>{" "}
@@ -425,6 +552,30 @@ export default function Home() {
                       <br />
                       <br />
                       <ScatterCirclePlot matrix={reponse.correlations} />
+                      <br />
+                      <br />
+                      <strong>Étape 11 : Les interpretations</strong>
+                      <pre>
+                        {generateText({
+                          data: reponse.variable_classifications,
+                        })}
+                      </pre>
+                      <br />
+                      <br />
+                      <strong>Étape 12 : Les statistiques</strong>
+                      {generateMeans({ data: reponse.pc_statistics.means })}
+                      <p>La variance</p>
+                      {generateVariance({
+                        data: reponse.pc_statistics.variance,
+                      })}
+                      <p>La covariance</p>
+                      <BlockMath
+                        math={generateCovarianceLatex(
+                          reponse.pc_statistics.covariance
+                        )}
+                      />
+                      <br />
+                      <br />
                     </>
                   )}
                 </div>
@@ -432,9 +583,11 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-center gap-3 ">
+              <div className="flex items-center justify-center gap-3">
                 <Image src={Logo} alt="Madabina Logo" width={36} height={36} />
-                <Label className="text-2xl">Hi I am MadaBina.</Label>
+                <Label className="text-2xl moving-text">
+                  Hi I am MadaBina.
+                </Label>
               </div>
               <Label>How can I help you today</Label>
             </>
