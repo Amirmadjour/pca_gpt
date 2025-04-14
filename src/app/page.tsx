@@ -38,6 +38,8 @@ export default function Home() {
   const [isConversation, setIsConversation] = useState<boolean>(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [reponse, setReponse] = useState<any>("");
+  const [header, setHeader] = useState<string>("");
+  const [isUsingKaiser, setIsUsingKaiser] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function formatLambdasKaTeX(lambdas: any[]) {
@@ -93,32 +95,54 @@ export default function Home() {
   ): "normé" | "hétérogène" | "homogène" | "inconnu" {
     const normalizedWords = [
       "normé",
+      "norme",
       "variance",
       "standardisation",
       "correlation",
     ];
     const heterogeneousWords = [
       "hétérogène",
+      "heterogene",
       "non-standardisé",
       "échelle différente",
       "variance forte",
     ];
     const homogeneousWords = [
       "homogène",
+      "homogene",
       "même unité",
       "même échelle",
       "covariance",
     ];
 
+    const kaiserWords = ["kaiser"];
+
     const lowerText = text.toLowerCase();
 
     if (normalizedWords.some((word) => lowerText.includes(word))) {
+      if (kaiserWords.some((word) => lowerText.includes(word))) {
+        setIsUsingKaiser(true);
+        setHeader("ACP Normé avec Kaiser");
+        return data.normalized_kaiser;
+      }
+      setHeader("ACP Normé sans Kaiser");
       return data.normalized;
     }
     if (heterogeneousWords.some((word) => lowerText.includes(word))) {
+      if (kaiserWords.some((word) => lowerText.includes(word))) {
+        setIsUsingKaiser(true);
+        setHeader("ACP hétérogène avec Kaiser");
+        return data.heterogeneous_kaiser;
+      }
+      setHeader("ACP hétérogène sans Kaiser");
       return data.heterogeneous;
     }
     if (homogeneousWords.some((word) => lowerText.includes(word))) {
+      if (kaiserWords.some((word) => lowerText.includes(word))) {
+        setHeader("Y'a pas une acp homogène avec critère de kaiser");
+        return "inconnu";
+      }
+      setHeader("ACP homogène");
       return data.homogeneous;
     }
     return "inconnu";
@@ -271,10 +295,8 @@ export default function Home() {
   function generateCovarianceLatex(matrix: number[][]): string {
     if (matrix.length === 0) return "\\begin{bmatrix} \\end{bmatrix}";
 
-    // Générer les labels dynamiquement : PC1, PC2, ..., PCn
     const labels = matrix.map((_, i) => `C${i + 1}`);
 
-    // Générer les lignes de la matrice en notation KaTeX
     const latex = matrix
       .map((row, i) =>
         row
@@ -347,12 +369,18 @@ export default function Home() {
                     className="absolute -left-14 top-16 border p-2 rounded-full"
                   />
                   {typeof reponse == "string" ? (
-                    <p>J'ai pas compris ton question 😅​</p>
+                    header.length != 0 ? (
+                      <h1 className="text-2xl font-bold">{header}</h1>
+                    ) : (
+                      <p>J'ai pas compris ta question 😅​</p>
+                    )
                   ) : (
                     <>
                       <div className="w-full">
-                        <MarkdownTypewriter
-                          content={`# Welcome to My Project
+                        {/* <MarkdownTypewriter
+                          content={`
+# Analyse en Composantes Principales (ACP) 
+**ACP** est une technique de réduction de dimensionnalité utilisée pour transformer des données de haute dimension en un espace de dimension inférieure tout en préservant autant de variance que possible.
 
 This is a **Markdown** document with a typewriter effect.
 
@@ -367,6 +395,9 @@ $$\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
 
 {{GenerateTable({title: "Données originales", table: data.data_original})}}
 
+
+{{GenerateTable({title: "Données centrées", table: data.data_centered})}}
+
 \`\`\`javascript
 console.log('Hello, world!');
 \`\`\`
@@ -375,11 +406,14 @@ console.log('Hello, world!');
                           delay={0.2}
                           duration={1}
                           data={reponse}
-                        />
+                        /> */}
                       </div>
                       {/* <ScatterPlot />
                       <ScatterCirclePlot /> */}
-                      <strong>Analyse en Composantes Principales (ACP)</strong>{" "}
+                      <h1 className="text-2xl font-bold">{header}</h1>
+                      <strong>
+                        Analyse en Composantes Principales (ACP)
+                      </strong>{" "}
                       est une technique de réduction de dimensionnalité utilisée
                       pour transformer des données de haute dimension en un
                       espace de dimension inférieure tout en préservant autant
@@ -460,17 +494,30 @@ console.log('Hello, world!');
                         math={formatLambdasKaTeX(reponse.eigenvalues)}
                       />
                       <br />
-                      <strong>
-                        Étape 5 : Calculer la qualité de représentation
-                      </strong>
-                      <BlockMath math="Q_j = \frac{\sum_{i=1}^{j} \lambda_i}{\sum_{i=1}^{p} \lambda_i} \geq 80\%" />
-                      <br />
-                      <br />
-                      <QualiteRepresentation
-                        qualites={reponse.inertia.cumulative_percent}
-                      />
-                      <br />
-                      <br />
+                      {!isUsingKaiser ? (
+                        <>
+                          <strong>
+                            Étape 5 : Calculer la qualité de représentation
+                          </strong>
+                          <BlockMath math="Q_j = \frac{\sum_{i=1}^{j} \lambda_i}{\sum_{i=1}^{p} \lambda_i} \geq 80\%" />
+                          <br />
+                          <br />
+                          <QualiteRepresentation
+                            qualites={reponse.inertia.cumulative_percent}
+                          />
+                          <br />
+                          <br />
+                        </>
+                      ) : (
+                        <>
+                          <strong>
+                            Étape 5 : Critere kaiser, les valuers propres qui
+                            sont superieur a 1
+                          </strong>
+                          <br />
+                          <br />
+                        </>
+                      )}
                       <strong>
                         Étape 6 : Calculer les vecteurs propres{" "}
                         <InlineMath math="U_k" /> en utilisant la formule{" "}
@@ -567,11 +614,13 @@ console.log('Hello, world!');
                         data: reponse.pc_statistics.variance,
                       })}
                       <p>La covariance</p>
-                      <BlockMath
-                        math={generateCovarianceLatex(
-                          reponse.pc_statistics.covariance
-                        )}
-                      />
+                      {!isUsingKaiser && (
+                        <BlockMath
+                          math={generateCovarianceLatex(
+                            reponse.pc_statistics.covariance
+                          )}
+                        />
+                      )}
                       <br />
                       <br />
                     </>

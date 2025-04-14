@@ -21,7 +21,7 @@ const SequentialMarkdownTypewriter: React.FC<
   const blocks = content.split("\n");
 
   return (
-    <div>
+    <div className="w-full max-w-full">
       {blocks.map((block, index) => (
         <ReactMarkdown
           key={index}
@@ -41,11 +41,18 @@ const SequentialMarkdownTypewriter: React.FC<
                 console.log(match);
 
                 const args = match[1].replace(/(\w+):/g, '"$1":');
-                console.log("args", args);
+
                 const resolvedString = args.replace(
-                  /data\.data_original/g,
-                  JSON.stringify(data.data_original)
+                  /data\.(\w+)/g, 
+                  (match, key) => {
+                    if (data[key]) {
+                      return JSON.stringify(data[key]); 
+                    }
+                    return match; 
+                  }
                 );
+
+                console.log("resolvedString", resolvedString);
                 const parsedObject = JSON.parse(resolvedString);
 
                 return (
@@ -56,7 +63,7 @@ const SequentialMarkdownTypewriter: React.FC<
               }
               return (
                 <Typewriter delay={index * delay} duration={duration}>
-                  <p className="mb-4">{props.children}</p>
+                  <p className="w-full mb-4">{props.children}</p>
                 </Typewriter>
               );
             },
